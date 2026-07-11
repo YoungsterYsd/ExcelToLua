@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Test outputs (regenerated on each run)
+tests/test_data/output/
+
+# User exports
+TestoutPut/
+
+# Excel temp files
+~$*.xlsx
