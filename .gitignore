@@ -23,6 +23,8 @@ tests/test_data/output/
 
 # User exports
 TestoutPut/
+_output/
+_Input/
 
 # Excel temp files
 ~$*.xlsx

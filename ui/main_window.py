@@ -35,70 +35,67 @@ class MainWindow:
         # ---- 搜索框变更跟踪 ----
         self.search_timer_id: str | None = None
 
-        # ---- 分隔条初始比例（文件列表占比，0.0~1.0） ----
-        self.pane_ratio = 0.6
-
+        # 文件列表与日志面板的初始比例（0~1，越大文件列表越高，默认 0.78）
+        self.pane_ratio = 0.8
         self._build_ui()
         self._load_last_paths()
-        # 窗口渲染后再设置分隔条初始位置
-        self.root.after(150, self._init_sash)
 
     def _build_ui(self):
-        # ===== 顶部：路径配置（两行） =====
-        top_frame = ttk.Frame(self.root, padding=(10, 10, 10, 5))
-        top_frame.pack(fill=tk.X)
+        # 根窗口用 grid 布局：3 行，中间行自适应
+        self.root.grid_rowconfigure(1, weight=1)
+        self.root.grid_columnconfigure(0, weight=1)
 
-        # 第一行：导入路径
-        ttk.Label(top_frame, text="导入路径:").grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
+        # ===== Row 0：顶部路径配置 =====
+        top_frame = ttk.Frame(self.root, padding=(10, 10, 10, 5))
+        top_frame.grid(row=0, column=0, sticky="ew")
+
+        ttk.Label(top_frame, text="导入路径:").grid(row=0, column=0, sticky="w", padx=(0, 5))
         ttk.Entry(top_frame, textvariable=self.input_dir, state="readonly").grid(
-            row=0, column=1, sticky=tk.EW, padx=(0, 5))
+            row=0, column=1, sticky="ew", padx=(0, 5))
         ttk.Button(top_frame, text="选择导入文件夹", command=self._select_input_dir).grid(
             row=0, column=2)
 
-        # 第二行：导出路径
-        ttk.Label(top_frame, text="导出路径:").grid(row=1, column=0, sticky=tk.W, padx=(0, 5), pady=(6, 0))
+        ttk.Label(top_frame, text="导出路径:").grid(row=1, column=0, sticky="w", padx=(0, 5), pady=(6, 0))
         ttk.Entry(top_frame, textvariable=self.output_dir, state="readonly").grid(
-            row=1, column=1, sticky=tk.EW, padx=(0, 5), pady=(6, 0))
+            row=1, column=1, sticky="ew", padx=(0, 5), pady=(6, 0))
         ttk.Button(top_frame, text="选择导出文件夹", command=self._select_output_dir).grid(
             row=1, column=2, pady=(6, 0))
 
         top_frame.columnconfigure(1, weight=1)
 
-        # ===== 中部：垂直分割（文件列表 + 日志面板） =====
+        # ===== Row 1：中部 PanedWindow（文件列表 + 日志面板） =====
         self.mid_pane = ttk.PanedWindow(self.root, orient=tk.VERTICAL)
-        self.mid_pane.pack(fill=tk.BOTH, expand=True, padx=10, pady=(5, 0))
+        self.mid_pane.grid(row=1, column=0, sticky="nsew", padx=10, pady=(5, 5))
 
-        # -- 上半：搜索框 + 文件列表 --
-        upper_frame = ttk.Frame(self.mid_pane, padding=(0, 0, 0, 0))
-        self.mid_pane.add(upper_frame, weight=4)
+        # -- 文件列表区 --
+        upper = ttk.Frame(self.mid_pane)
+        self.mid_pane.add(upper, weight=4)
 
-        search_frame = ttk.Frame(upper_frame)
-        search_frame.pack(fill=tk.X, pady=(0, 5))
-        ttk.Label(search_frame, text="搜索文件:").pack(side=tk.LEFT, padx=(0, 5))
-        self.search_entry = ttk.Entry(search_frame, textvariable=self.search_text)
-        self.search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
-        ttk.Button(search_frame, text="清除", command=self._clear_search).pack(side=tk.LEFT)
-
+        # 搜索栏
+        bar = ttk.Frame(upper)
+        bar.pack(fill="x", pady=(0, 5))
+        ttk.Label(bar, text="搜索文件:").pack(side="left", padx=(0, 5))
+        self.search_entry = ttk.Entry(bar, textvariable=self.search_text)
+        self.search_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        ttk.Button(bar, text="清除", command=self._clear_search).pack(side="left")
         self.search_text.trace_add("write", self._on_search_changed)
 
-        list_frame = ttk.Frame(upper_frame)
-        list_frame.pack(fill=tk.BOTH, expand=True)
+        # Treeview
+        tree_frame = ttk.Frame(upper)
+        tree_frame.pack(fill="both", expand=True)
 
-        columns = ("filename", "path")
-        self.tree = ttk.Treeview(
-            list_frame, columns=columns, show="tree headings",
-            selectmode="extended")
-        self.tree.heading("#0", text="")
+        self.tree = ttk.Treeview(tree_frame, columns=("filename", "path"),
+                                  show="tree headings", selectmode="extended")
         self.tree.heading("filename", text="文件名")
         self.tree.heading("path", text="路径")
         self.tree.column("#0", width=0, stretch=False)
         self.tree.column("filename", width=200, minwidth=100)
         self.tree.column("path", width=500, minwidth=200)
 
-        tree_scroll = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.tree.yview)
-        self.tree.configure(yscrollcommand=tree_scroll.set)
-        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        tree_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        ts = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=ts.set)
+        self.tree.pack(side="left", fill="both", expand=True)
+        ts.pack(side="right", fill="y")
 
         # 右键菜单
         self.context_menu = tk.Menu(self.root, tearoff=0)
@@ -107,65 +104,51 @@ class MainWindow:
         self.tree.bind("<Button-3>", self._on_right_click)
         self.tree.bind("<Double-1>", lambda e: self._open_selected())
 
-        # -- 下半：日志面板（可拖拽分隔条调整高度） --
-        log_frame = ttk.Frame(self.mid_pane, padding=(0, 5, 0, 0))
-        self.mid_pane.add(log_frame, weight=1)
+        # -- 日志区 --
+        lower = ttk.Frame(self.mid_pane)
+        self.mid_pane.add(lower, weight=1)
 
-        log_header = ttk.Frame(log_frame)
-        log_header.pack(fill=tk.X)
-        ttk.Label(log_header, text="输出日志", font=("", 9, "bold")).pack(side=tk.LEFT)
-        ttk.Button(log_header, text="清空日志", command=self._clear_log,
-                   style="secondary.TButton", width=8).pack(side=tk.RIGHT)
+        hdr = ttk.Frame(lower)
+        hdr.pack(fill="x")
+        ttk.Label(hdr, text="输出日志", font=("", 9, "bold")).pack(side="left")
+        ttk.Button(hdr, text="清空日志", command=self._clear_log,
+                   style="secondary.TButton", width=8).pack(side="right")
 
-        log_text_frame = ttk.Frame(log_frame)
-        log_text_frame.pack(fill=tk.BOTH, expand=True)
+        txt_frame = ttk.Frame(lower)
+        txt_frame.pack(fill="both", expand=True)
 
-        self.log_text = tk.Text(
-            log_text_frame, wrap=tk.WORD, state=tk.DISABLED,
-            font=("Consolas", 9), bg="#1e1e1e", fg="#d4d4d4",
-            insertbackground="#d4d4d4", relief=tk.FLAT,
-            borderwidth=0, padx=8, pady=6)
-        log_text_scroll = ttk.Scrollbar(log_text_frame, orient=tk.VERTICAL, command=self.log_text.yview)
-        self.log_text.configure(yscrollcommand=log_text_scroll.set)
-        self.log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        log_text_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.log_text = tk.Text(txt_frame, wrap="word", state="disabled",
+                                 font=("Consolas", 9), bg="#1e1e1e", fg="#d4d4d4",
+                                 insertbackground="#d4d4d4", relief="flat",
+                                 borderwidth=0, padx=8, pady=6)
+        ls = ttk.Scrollbar(txt_frame, orient="vertical", command=self.log_text.yview)
+        self.log_text.configure(yscrollcommand=ls.set)
+        self.log_text.pack(side="left", fill="both", expand=True)
+        ls.pack(side="right", fill="y")
 
-        # 日志标签颜色（仅标签着色，正文保持默认前景色）
+        # 日志颜色
         self.log_text.tag_configure("time", foreground="#888888")
         self.log_text.tag_configure("tag_info", foreground="#6f9fcf")
         self.log_text.tag_configure("tag_success", foreground="#6fdf6f")
         self.log_text.tag_configure("tag_error", foreground="#ff6b6b")
         self.log_text.tag_configure("tag_warn", foreground="#ffcc66")
 
-        # ===== 底部：状态栏 + 操作按钮 =====
+        # ===== Row 2：底部状态栏 + 按钮 =====
         bottom_frame = ttk.Frame(self.root, padding=(10, 5, 10, 10))
-        bottom_frame.pack(fill=tk.X)
+        bottom_frame.grid(row=2, column=0, sticky="ew")
 
         self.status_var = tk.StringVar(value="就绪")
-        ttk.Label(bottom_frame, textvariable=self.status_var, anchor=tk.W).pack(
-            side=tk.LEFT, fill=tk.X, expand=True)
-
+        ttk.Label(bottom_frame, textvariable=self.status_var, anchor="w").pack(
+            side="left", fill="x", expand=True)
         ttk.Button(bottom_frame, text="全部导出", command=self._export_all,
-                   style="success.TButton").pack(side=tk.RIGHT, padx=(5, 0))
+                   style="success.TButton").pack(side="right", padx=(5, 0))
         ttk.Button(bottom_frame, text="刷新列表", command=self._refresh_file_list,
-                   style="info.TButton").pack(side=tk.RIGHT, padx=(5, 0))
+                   style="info.TButton").pack(side="right", padx=(5, 0))
 
-        # 初始日志消息
+        # 初始分隔条位置（等窗口渲染完后执行）
+        self.root.after(100, self._apply_pane_ratio)
+
         self._log("就绪，等待操作...", "info")
-
-    # ---- 分隔条 ----
-
-    def _init_sash(self):
-        """设置文件列表与日志面板的初始分隔条位置。
-        pane_ratio 控制文件列表占中部区域的比例（默认 0.78 = 78%）。
-        """
-        try:
-            total = self.mid_pane.winfo_height()
-            if total > 100:
-                sash_y = int(total * self.pane_ratio)
-                self.mid_pane.sashpos(0, sash_y)
-        except Exception:
-            pass  # 窗口尚未就绪则跳过
 
     def _log(self, message: str, tag: str = "info"):
         """向日志面板追加一条消息。格式: [时间] [类型] 正文
@@ -188,6 +171,15 @@ class MainWindow:
         self.log_text.delete("1.0", tk.END)
         self.log_text.configure(state=tk.DISABLED)
         self._log("日志已清空", "info")
+
+    def _apply_pane_ratio(self):
+        """按 pane_ratio 设置文件列表与日志面板的初始分隔条位置。"""
+        try:
+            h = self.mid_pane.winfo_height()
+            if h > 100:
+                self.mid_pane.sashpos(0, int(h * self.pane_ratio))
+        except Exception:
+            pass
 
     # ---- 事件处理 ----
 

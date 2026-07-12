@@ -36,11 +36,11 @@ def _generate_flat(merged: MergedTable, lines: list[str]) -> str:
         rid_str = _format_key(rid)
         field_lines = _format_data_lines(row, data_fields, indent=2)
         if field_lines:
-            lines.append(f"\t[{rid_str}] = {{")
+            lines.append(f"\t{rid_str} = {{")
             lines.extend(field_lines)
             lines.append(f"\t}},")
         else:
-            lines.append(f"\t[{rid_str}] = {{}},")
+            lines.append(f"\t{rid_str} = {{}},")
 
     lines.append(f"}}")
     lines.append(f"return {table_name}")
@@ -68,16 +68,16 @@ def _generate_nested(merged: MergedTable, lines: list[str]) -> str:
 
     for rid in order:
         rid_str = _format_key(rid)
-        lines.append(f"\t[{rid_str}] = {{")
+        lines.append(f"\t{rid_str} = {{")
         for subid, row in groups[rid]:
             subid_str = _format_key(subid)
             field_lines = _format_data_lines(row, data_fields, indent=3)
             if field_lines:
-                lines.append(f"\t\t[{subid_str}] = {{")
+                lines.append(f"\t\t{subid_str} = {{")
                 lines.extend(field_lines)
                 lines.append(f"\t\t}},")
             else:
-                lines.append(f"\t\t[{subid_str}] = {{}},")
+                lines.append(f"\t\t{subid_str} = {{}},")
         lines.append(f"\t}},")
 
     lines.append(f"}}")
@@ -108,20 +108,21 @@ def _format_data_lines(row: dict, fields, indent: int = 1) -> list[str]:
 
 
 def _format_key(value) -> str:
-    """格式化 Lua 表键的值部分（不含外层中括号）。
-    Int → 数字字符串, String → "引号字符串"
-    调用方负责加 [...] 包裹。
+    """返回完整的 Lua 表键语法。
+    Int    → [1001]
+    String → ITEM_SWORD（合法标识符）或 ["含特殊字符"]（非标识符）
     """
     if isinstance(value, int):
-        return str(value)
+        return f"[{value}]"
     if isinstance(value, float):
-        if value == int(value):
-            return str(int(value))
-        return str(value)
+        v = int(value) if value == int(value) else value
+        return f"[{v}]"
     if isinstance(value, str):
+        if _is_valid_lua_identifier(value):
+            return value
         escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-        return f'"{escaped}"'
-    return f'"{value}"'
+        return f'["{escaped}"]'
+    return f'["{value}"]'
 
 
 def _to_lua_value(value, field_type=None) -> str:
